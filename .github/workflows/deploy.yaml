@@ -1,0 +1,39 @@
+name: Deploy MultiDocker
+on:
+  push:
+    branches:
+      - main
+ 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - run: docker build -t riv184/multi-test:latest -f ./client/Dockerfile.dev ./client
+      - run: docker run -e CI=true riv184/multi-test:latest npm test
+ 
+      - run: docker build -t riv184/multi-client:latest ./client
+      - run: docker build -t riv184/multi-nginx:latest ./nginx
+      - run: docker build -t riv184/multi-server:latest ./server
+      - run: docker build -t riv184/multi-worker:latest ./worker
+ 
+      - run: docker push riv184/multi-client:latest
+      - run: docker push riv184/multi-nginx:latest 
+      - run: docker push riv184/multi-server:latest
+      - run: docker push riv184/multi-worker:latest
+ 
+      - name: Generate deployment package
+        run: zip -r deploy.zip . -x '*.git*'
+ 
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@v18
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
+          application_name: ??
+          environment_name: ??
+          existing_bucket_name: ??
+          region: ??
+          version_label: ${{ github.sha }}
+          deployment_package: deploy.zip
